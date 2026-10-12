@@ -42,7 +42,8 @@ class PeliAsiakas
             case "GAME":
                 if (komento == "DATA")
                 {
-                    uusiTila = "GAME";
+                    // Vastustaja arvasi väärin: kuitataan, ja seuraavaksi on oma vuoro
+                    uusiTila = "TURN";
                     viesti = "ACK 300";
                 }
                 else if (komento == "ACK" && osat.Length >= 2 && osat[1] == "300")
@@ -65,6 +66,11 @@ class PeliAsiakas
                     viesti = $"DATA {arvaus}";
                 }
                 break;
+
+            case "TURN":
+                uusiTila = "GAME";
+                viesti = $"DATA {arvaus}";
+                break;
         }
 
         return (uusiTila, viesti);
@@ -74,7 +80,7 @@ class PeliAsiakas
     {
         string palvelimenOsoite = "127.0.0.1";
         int portti = 5000;
-        int arvaus = 3;
+        int arvaus = args.Length > 0 ? int.Parse(args[0]) : 0;
 
         Socket udp = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         udp.ReceiveTimeout = 5000;
@@ -94,12 +100,14 @@ class PeliAsiakas
             {
                 byte[] data = Encoding.UTF8.GetBytes(lahetettava);
                 udp.SendTo(data, palvelin);
+                if (lahetettava.StartsWith("DATA")) arvaus++;
             }
 
             if (tila == "CLOSED" && !string.IsNullOrEmpty(lahetettava))
                 break;
 
-            if (!string.IsNullOrEmpty(lahetettava) || tila == "JOIN" || tila == "GAME")
+            // TURN: lähetetään oma arvaus heti, palvelin ei lähetä tässä välissä mitään
+            if (tila != "TURN" && (!string.IsNullOrEmpty(lahetettava) || tila == "JOIN" || tila == "GAME"))
             {
                 try
                 {
